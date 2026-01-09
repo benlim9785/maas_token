@@ -48,7 +48,7 @@ Before using this project, you must enable caching for your model in the BytePlu
 
 ```bash
 # Install required Python packages
-pip install byteplussdkarkruntime python-dotenv
+pip install -r requirements.txt
 ```
 
 ### 2. Environment Configuration
@@ -66,15 +66,6 @@ TARGET_TOKEN_MILLION=1
 - `MODEL_ENDPOINT_ID`: Your model endpoint ID (e.g., `ep-20251224002331-ntm9r`)
 - `TARGET_TOKEN_MILLION`: Target token count in millions (default: 1 million tokens)
 
-### 3. Prepare Content File
-
-Create a `novel.txt` file with content for analysis:
-
-```bash
-# Add your text content to novel.txt
-# This will be used as the system prompt for caching
-echo "Your novel or text content here..." > novel.txt
-```
 
 ## Usage
 
