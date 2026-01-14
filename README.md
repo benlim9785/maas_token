@@ -1,14 +1,16 @@
 # BytePlus ModelArk Token Caching Project
 
-A Python project for testing and measuring cached token usage with BytePlus ModelArk API, featuring automatic billing calculation and token target management.
+A Python project for processing tokens with BytePlus ModelArk API, featuring configurable caching, automatic billing calculation, randomized token targets, and automated daily scheduling.
 
 ## Overview
 
-This project demonstrates efficient token caching with BytePlus ModelArk by:
-- Creating an initial cached system prompt from novel analysis
-- Running continuous API calls that leverage cached tokens
-- Tracking total token usage against a configurable target
-- Calculating billing costs at $0.015 per million cached tokens
+This project processes tokens with BytePlus ModelArk by:
+- Configurable caching system (enabled/disabled via .env)
+- Processing novel content with randomized token targets (±5% variation)
+- Running continuous API calls with real-time progress tracking
+- Professional logging with timestamped files
+- Automated daily scheduling via cronjob setup
+- Calculating billing costs at configurable rates (default: $0.0875 per million input tokens)
 
 ## Prerequisites
 
@@ -58,116 +60,244 @@ Create a `.env` file in the project root:
 ```env
 ARK_API_KEY="your-api-key-here"
 MODEL_ENDPOINT_ID="your-endpoint-id-here"
-TARGET_TOKEN_MILLION=1
+TARGET_TOKEN_MILLION=10
+CACHE_ENABLED=False
+CACHE_PREFIX=False
+COST_PER_MILLION=0.0875
+TARGET_VARIATION_PERCENT=5
 ```
 
 **Configuration Options:**
 - `ARK_API_KEY`: Your BytePlus ModelArk API key
 - `MODEL_ENDPOINT_ID`: Your model endpoint ID (e.g., `ep-20251224002331-ntm9r`)
-- `TARGET_TOKEN_MILLION`: Target token count in millions (default: 1 million tokens)
+- `TARGET_TOKEN_MILLION`: Base target token count in millions (default: 10 million tokens)
+- `CACHE_ENABLED`: Enable/disable API response caching (true/false, default: false)
+- `CACHE_PREFIX`: Use cache prefix when caching is enabled (true/false, default: false)
+- `COST_PER_MILLION`: Cost rate per million tokens (default: $0.0875 for input tokens)
+- `TARGET_VARIATION_PERCENT`: Daily randomization percentage for token targets (default: ±5%)
 
 
 ## Usage
 
-### Running the Project
+### Manual Execution
 
 ```bash
 python task.py
 ```
 
-### First Run Behavior
+The script will create timestamped log files in the `logs/` directory and display progress both in console and log file.
 
-When you run the project for the first time:
+### Automated Daily Execution (Recommended)
 
-1. **Initial Setup**: Creates cached response from `novel.txt`
-2. **Cache Creation**: Generates a cached system prompt
-3. **Verification**: Tests the caching mechanism
-4. **Token Loop**: Starts the continuous token processing
+#### Setup Cronjob
 
-### Subsequent Runs
+Use the automated setup script to install a daily cronjob:
 
-On subsequent runs:
+```bash
+# Setup cronjob to run daily at 9:00 AM (includes immediate run)
+./scripts/setup_cronjob.sh
 
-1. **Cache Detection**: Loads existing cached response
-2. **Token Loop**: Immediately starts token processing
-3. **Progress Tracking**: Shows real-time token accumulation
+# Setup cronjob without running immediately
+./scripts/setup_cronjob.sh --no-run
+```
+
+**What the setup script does:**
+- ✅ Installs cronjob for daily 9 AM execution
+- ✅ Creates logs directory
+- ✅ Runs immediately for today (unless --no-run specified)
+- ✅ Provides monitoring commands
+
+#### Remove Cronjob
+
+To completely remove the cronjob and stop any running processes:
+
+```bash
+# Remove cronjob and kill any running task.py processes
+./scripts/remove_cronjob.sh
+```
+
+**What the removal script does:**
+- ✅ Removes the scheduled cronjob from crontab
+- ✅ Finds and kills any running task.py processes
+- ✅ Uses graceful termination (SIGTERM) first, then force kill (SIGKILL) if needed
+- ✅ Provides verification commands
+
+#### Monitor Execution
+
+```bash
+# List log files to find latest run
+ls -la logs/
+
+# Watch live progress (replace with actual timestamp)
+tail -f logs/task_YYYYMMDD_HHMMSS.log
+
+# Check if task.py is currently running
+ps aux | grep "python.*task.py"
+```
+
+**Benefits of Automated Scheduling**:
+- 🕘 **Daily consistency**: Runs automatically every day at 9 AM
+- 📊 **Individual log files**: Each run gets its own timestamped log
+- 🛡️ **Process management**: Safe setup and removal with process cleanup
+- ⚡ **Immediate testing**: Setup script can run immediately for validation
+- 🔄 **Rate limit protection**: Prevents multiple simultaneous runs
+
+### How It Works
+
+**With Caching Enabled (`CACHE_ENABLED=true`):**
+1. **Initial Setup**: Creates cached response from novel content in `novels/novel1.txt`
+2. **Cache Creation**: Generates a cached system prompt for reuse
+3. **Token Loop**: Leverages cached tokens for efficient processing
+
+**With Caching Disabled (`CACHE_ENABLED=false`, default):**
+1. **Direct Processing**: Processes full novel content on each API call
+2. **Token Loop**: Tracks input tokens instead of cached tokens
+3. **Higher Token Usage**: Each request processes complete novel content
+
+**Daily Randomization:**
+- Base target (e.g., 10M tokens) varies by ±5% each day
+- Prevents predictable usage patterns
+- Example: 10M ±5% = random target between 9.5M - 10.5M tokens
 
 ## Understanding the Output
 
 ### During Execution
+
+**Console and Log Output:**
 ```
-Target: 1,000,000 tokens (1.0 million)
-Cost rate: $0.015 per million cached tokens
-==================================================
-[2024-01-09 10:30:15]: looped - cached tokens: 15,234 | total: 847,592 | target: 1,000,000
-[2024-01-09 10:30:35]: looped - cached tokens: 15,234 | total: 862,826 | target: 1,000,000
+2026-01-14 14:08:53,641 - INFO - Base target: 10.0 million tokens
+2026-01-14 14:08:53,642 - INFO - Variation range: 9.50M - 10.50M tokens (±5.0%)
+2026-01-14 14:08:53,642 - INFO - Today's randomized target: 10,238,894 tokens (10.239M)
+2026-01-14 14:08:53,642 - INFO - Cost rate: $0.0875 per million input tokens
+2026-01-14 14:08:53,642 - INFO - Cache disabled - will process full novel content each request
+2026-01-14 14:08:53,642 - INFO - ==================================================
+2026-01-14 14:08:53,643 - INFO - looped - input tokens: 221,478 | total: 221,478 | target: 10,238,894
+2026-01-14 14:09:15,822 - INFO - looped - input tokens: 221,478 | total: 442,956 | target: 10,238,894
 ```
 
 ### Final Billing Summary
 ```
+2026-01-14 15:05:49,030 - INFO -
 ==================================================
-FINAL BILLING SUMMARY
-==================================================
-Target tokens: 1,000,000
-Total cached tokens processed: 1,003,456
-Total million tokens: 1.003456
-Cost per million tokens: $0.015
-Total bill: $0.015052
-==================================================
+2026-01-14 15:05:49,030 - INFO - FINAL BILLING SUMMARY
+2026-01-14 15:05:49,030 - INFO - ==================================================
+2026-01-14 15:05:49,030 - INFO - Caching enabled: False
+2026-01-14 15:05:49,030 - INFO - Base target: 10.0M tokens
+2026-01-14 15:05:49,030 - INFO - Variation range: 9.50M - 10.50M tokens (±5.0%)
+2026-01-14 15:05:49,030 - INFO - Today's randomized target: 10,238,894 tokens (10.239M)
+2026-01-14 15:05:49,030 - INFO - Total input tokens processed: 10,372,286
+2026-01-14 15:05:49,030 - INFO - Total million tokens: 10.372286
+2026-01-14 15:05:49,030 - INFO - Cost per million tokens: $0.0875
+2026-01-14 15:05:49,030 - INFO - Total bill: $0.907575
+2026-01-14 15:05:49,030 - INFO - ==================================================
 ```
 
 ## Configuration Options
 
-### Adjusting Token Target
+### Adjusting Token Targets
 
-To change your token target, modify the `.env` file:
+To change your token processing configuration, modify the `.env` file:
 
 ```env
-# For 5 million tokens
+# For 5 million tokens base target with ±10% variation
 TARGET_TOKEN_MILLION=5
+TARGET_VARIATION_PERCENT=10
 
-# For 0.5 million tokens
-TARGET_TOKEN_MILLION=0.5
+# For fixed 2 million tokens (no randomization)
+TARGET_TOKEN_MILLION=2
+TARGET_VARIATION_PERCENT=0
 ```
 
-### Using Different Model Endpoints
+### Enabling/Disabling Caching
 
-Update your model endpoint in `.env`:
+Control caching behavior in `.env`:
 
 ```env
-MODEL_ENDPOINT_ID="ep-your-new-endpoint-id"
+# Enable caching for more efficient token reuse
+CACHE_ENABLED=true
+CACHE_PREFIX=true
+
+# Disable caching for processing full content each request (default)
+CACHE_ENABLED=false
+CACHE_PREFIX=false
+```
+
+### Adjusting Cost Rates
+
+Update billing calculations for different models:
+
+```env
+# For different cost models
+COST_PER_MILLION=0.0875    # Current default for input tokens
+COST_PER_MILLION=0.015     # Example for cached tokens
 ```
 
 ## File Structure
 
 ```
 maas_token/
-├── task.py                 # Main execution script
-├── main.py                 # Legacy setup script (not needed)
-├── .env                    # Environment configuration
-├── novel.txt               # Content for system prompt caching
-├── cached_response.json    # Generated cache file (auto-created)
-└── README.md               # This file
+├── task.py                          # Main execution script with logging
+├── main.py                          # Simple ModelArk query script
+├── .env                             # Environment configuration
+├── novels/                          # Novel content directory
+│   └── novel1.txt                   # Content for system prompt processing
+├── cached_response.json             # Generated cache file (auto-created when caching enabled)
+├── scripts/                         # Automation scripts directory
+│   ├── setup_cronjob.sh            # Cronjob installation and setup script
+│   └── remove_cronjob.sh           # Cronjob removal and cleanup script
+├── logs/                            # Execution logs directory (auto-created)
+│   ├── task_YYYYMMDD_HHMMSS.log    # Timestamped log files for each run
+│   └── README.md                    # Log directory documentation
+├── README.md                        # Main project documentation
+└── AUTOMATION_GUIDE.md              # Additional automation documentation (if exists)
 ```
+
+### Key Files Explained
+
+**Core Scripts:**
+- `task.py`: Main script with professional logging and token processing
+- `main.py`: Simplified script for testing single ModelArk queries
+
+**Configuration:**
+- `.env`: All configuration variables (API keys, targets, caching, costs)
+- `novels/novel1.txt`: Source content for token processing
+
+**Automation:**
+- `scripts/setup_cronjob.sh`: One-command cronjob installation
+- `scripts/remove_cronjob.sh`: Complete cronjob and process cleanup
+
+**Logging:**
+- `logs/`: All execution logs with timestamps
+- Each run creates its own log file for easy tracking
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **"cached_response.json not found" but setup fails**
-   - Check if `novel.txt` exists and has content
-   - Verify your API key and model endpoint ID
-   - Ensure caching is enabled for your model in ModelArk console
+1. **"novel.txt not found" error**
+   - Ensure `novels/novel1.txt` exists and has content
+   - Check the correct path: `novels/novel1.txt` (not root directory)
+   - Verify file has proper UTF-8 encoding
 
-2. **No cached tokens in responses**
-   - Verify caching is enabled in ModelArk console for your specific model
-   - Check that you're using the correct endpoint ID
-   - Ensure the model supports caching features
+2. **Rate limit errors (TPM limit exceeded)**
+   - Wait 1-2 hours between manual runs to avoid API rate limits
+   - Use `./scripts/remove_cronjob.sh` to stop duplicate processes
+   - Check for multiple running instances: `ps aux | grep task.py`
 
 3. **API authentication errors**
    - Verify your `ARK_API_KEY` in the `.env` file
    - Check API key permissions in BytePlus console
    - Ensure the API key is active and not expired
+
+4. **Cronjob setup issues**
+   - Ensure virtual environment exists: `ls venv/`
+   - Check cronjob installation: `crontab -l`
+   - Use `--no-run` flag to test setup without running task
+
+5. **No log files appearing**
+   - Check if `logs/` directory exists (auto-created by script)
+   - Verify script has write permissions to the directory
+   - Look for error messages in console output
 
 ### Getting Help
 
@@ -177,10 +307,29 @@ maas_token/
 
 ## Cost Information
 
-- **Cached Token Rate**: $0.015 per million cached tokens
+### Current Pricing (Configurable via .env)
+
+- **Default Input Token Rate**: $0.0875 per million input tokens
+- **Cached Token Rate**: $0.015 per million cached tokens (when caching enabled)
+- **Configurable**: Adjust `COST_PER_MILLION` in `.env` for different models
+
+### Cost Examples
+
+**With Caching Disabled (Default):**
+- 10M tokens × $0.0875 = ~$0.88 per run
+- Higher token usage but simpler setup
+
+**With Caching Enabled:**
+- 10M cached tokens × $0.015 = ~$0.15 per run
+- Lower costs but requires ModelArk caching setup
+
+### Features
+
 - **Real-time Tracking**: Monitor costs as tokens accumulate
 - **Target-based**: Automatically stops and calculates final bill when target is reached
+- **Daily Variation**: ±5% randomization prevents predictable usage patterns
+- **Detailed Billing**: Comprehensive summary with token counts and costs
 
 ---
 
-**Note**: This project is designed for testing and measuring cached token efficiency. Make sure caching is properly configured in your BytePlus ModelArk console before running the project.
+**Note**: This project supports both cached and non-cached token processing. Caching provides cost efficiency but requires proper ModelArk console configuration. The default configuration (caching disabled) works immediately without additional setup.
