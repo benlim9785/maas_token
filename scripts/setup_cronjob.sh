@@ -20,7 +20,7 @@ USERNAME=$(whoami)
 mkdir -p logs
 
 # Create the cron job entry for 9 AM daily
-CRON_ENTRY="0 9 * * * cd $PROJECT_DIR && source venv/bin/activate && python3 task.py"
+CRON_ENTRY="0 9 * * * cd $PROJECT_DIR && venv/bin/python3 task.py"
 
 # Check if cron job already exists
 if crontab -l 2>/dev/null | grep -q "python3 task.py"; then
