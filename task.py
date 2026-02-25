@@ -4,6 +4,7 @@ import json
 import random
 import logging
 from byteplussdkarkruntime import Ark
+from byteplussdkarkruntime._exceptions import ArkBadRequestError
 from dotenv import load_dotenv
 import time
 from datetime import datetime
@@ -107,18 +108,36 @@ total_cached_tokens = 0
 target_tokens = calculate_random_target()
 
 def loop():
-    global total_cached_tokens
+    global total_cached_tokens, cached_response_id
 
     if cache_enabled and cached_response_id:
         # Use cached responses when caching is enabled
-        response = client.responses.create(
-            model=model_endpoint_id,
-            previous_response_id=cached_response_id,
-            input=[{"role": "user", "content": "What is the main theme expressed in the above text?"}],
-            caching={"type": "enabled"},
-            thinking={"type": "disabled"},
-            max_output_tokens=1
-        )
+        try:
+            response = client.responses.create(
+                model=model_endpoint_id,
+                previous_response_id=cached_response_id,
+                input=[{"role": "user", "content": "What is the main theme expressed in the above text?"}],
+                caching={"type": "enabled"},
+                thinking={"type": "disabled"},
+                max_output_tokens=1
+            )
+        except ArkBadRequestError as e:
+            error_data = e.args[0] if e.args else {}
+            if isinstance(error_data, dict) and error_data.get('code') == 'InvalidParameter.PreviousResponseNotFound':
+                log.warning(f"Previous response not found: {error_data.get('message', 'Unknown error')}")
+                log.info("Removing cached_response.json and triggering fresh session...")
+                if os.path.exists('cached_response.json'):
+                    os.remove('cached_response.json')
+                    log.info("cached_response.json removed successfully.")
+                else:
+                    log.info("cached_response.json not found, nothing to remove.")
+                # Reset cached_response_id to trigger fresh session creation
+                cached_response_id = None
+                log.info("Restarting with fresh session...")
+                return False  # Return False to continue the loop, which will create a new session
+            else:
+                # Re-raise if it's a different error
+                raise
 
         cached_tokens = response.usage.input_tokens_details.cached_tokens if response.usage.input_tokens_details else 0
         total_cached_tokens += cached_tokens
